@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Şarkı Hikayesi</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@500;800&family=Inter:wght@500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#111;color:#fff;font-family:Inter,sans-serif;padding:16px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.panel{width:100%;max-width:360px;display:flex;flex-direction:column;gap:8px}
+input,textarea,select,button{width:100%;padding:10px;border-radius:8px;border:1px solid #333;background:#1c1c1c;color:#fff;font:inherit;font-size:14px}
+input[type=color]{height:40px;padding:2px}
+textarea{min-height:110px}
+button{background:#1db954;border:0;font-weight:700;color:#000}
+button.alt{background:#2a2a2a;color:#fff}
+.row{display:flex;gap:8px}
+
+/* KART */
+#card{width:360px;height:640px;position:relative;overflow:hidden;border-radius:16px;flex-shrink:0}
+#card .bg{position:absolute;inset:0}
+#card .content{position:relative;z-index:2;height:100%;padding:48px 28px 36px;display:flex;flex-direction:column}
+.head{display:flex;gap:12px;align-items:center}
+.head img{width:56px;height:56px;border-radius:6px;object-fit:cover;background:#333}
+.head .t{font-weight:800;font-size:16px;line-height:1.2}
+.head .a{font-size:14px;opacity:.8;margin-top:2px}
+.lyrics{flex:1;display:flex;align-items:center;white-space:pre-wrap;line-height:1.18;word-break:break-word}
+.foot{font-size:13px;font-weight:700;opacity:.9;display:flex;align-items:center;gap:6px}
+
+/* Spotify */
+#card.spotify .content{font-family:Figtree,sans-serif;color:#000}
+#card.spotify .lyrics{font-weight:800;font-size:30px}
+/* Apple Music */
+#card.apple .content{font-family:Inter,sans-serif;color:#fff}
+#card.apple .bg{filter:blur(40px) brightness(.7) saturate(1.4);transform:scale(1.4);background-size:cover;background-position:center}
+#card.apple .lyrics{font-weight:800;font-size:28px;letter-spacing:-.5px}
+#card.apple .head img{border-radius:10px;box-shadow:0 4px 16px #0006}
+</style>
+</head>
+<body>
+
+<div class="panel">
+  <select id="style">
+    <option value="spotify">Spotify tarzı</option>
+    <option value="apple">Apple Music tarzı</option>
+  </select>
+  <div class="row">
+    <input id="link" placeholder="Spotify linki (opsiyonel)">
+    <button class="alt" id="getLink" style="width:90px">Getir</button>
+  </div>
+  <input id="title" placeholder="Şarkı adı">
+  <input id="artist" placeholder="Sanatçı">
+  <div class="row">
+    <input type="file" id="file" accept="image/*">
+    <input type="color" id="color" value="#1db954" style="width:70px">
+  </div>
+  <button class="alt" id="getLyrics">Sözleri getir (şarkı adı + sanatçı)</button>
+  <textarea id="lyrics" placeholder="Sözleri buraya yaz veya yapıştır. Kartta sadece burada kalan satırlar görünür."></textarea>
+  <input id="size" type="range" min="18" max="44" value="30">
+  <button id="download">PNG olarak indir</button>
+</div>
+
+<div id="card" class="spotify">
+  <div class="bg" id="bg"></div>
+  <div class="content">
+    <div class="head">
+      <img id="cImg" crossorigin="anonymous" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">
+      <div><div class="t" id="cTitle">Şarkı adı</div><div class="a" id="cArtist">Sanatçı</div></div>
+    </div>
+    <div class="lyrics" id="cLyrics">Sözler burada görünecek</div>
+    <div class="foot" id="cFoot">Spotify</div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const card=$('card');
+
+function render(){
+  card.className=$('style').value;
+  $('cTitle').textContent=$('title').value||'Şarkı adı';
+  $('cArtist').textContent=$('artist').value||'Sanatçı';
+  $('cLyrics').textContent=$('lyrics').value||'Sözler burada görünecek';
+  $('cLyrics').style.fontSize=$('size').value+'px';
+  $('cFoot').textContent=$('style').value==='apple'?' Apple Music':'Spotify';
+  const bg=$('bg');
+  if($('style').value==='apple' && $('cImg').src.startsWith('data:image/gif')===false){
+    bg.style.backgroundImage=`url(${$('cImg').src})`; bg.style.backgroundColor='';
+  } else {
+    bg.style.backgroundImage='none'; bg.style.backgroundColor=$('color').value;
+  }
+}
+['style','title','artist','lyrics','size','color'].forEach(i=>$(i).addEventListener('input',render));
+
+$('file').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const url=URL.createObjectURL(f);
+  setCover(url);
+});
+
+function setCover(url){
+  $('cImg').onload=()=>{ autoColor(); render(); };
+  $('cImg').src=url;
+}
+
+function autoColor(){
+  try{
+    const c=document.createElement('canvas');c.width=c.height=8;
+    const x=c.getContext('2d');x.drawImage($('cImg'),0,0,8,8);
+    const d=x.getImageData(0,0,8,8).data;let r=0,g=0,b=0;
+    for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2]}
+    const n=d.length/4;
+    const h=v=>Math.round(v/n).toString(16).padStart(2,'0');
+    $('color').value='#'+h(r)+h(g)+h(b);
+  }catch(e){}
+}
+
+$('getLink').onclick=async()=>{
+  const l=$('link').value.trim(); if(!l) return;
+  try{
+    const r=await fetch('https://open.spotify.com/oembed?url='+encodeURIComponent(l));
+    const j=await r.json();
+    $('title').value=j.title||'';
+    setCover(j.thumbnail_url);
+    render();
+  }catch(e){alert('Linkten bilgi alınamadı, elle gir.')}
+};
+
+$('getLyrics').onclick=async()=>{
+  const q=($('title').value+' '+$('artist').value).trim(); if(!q) return alert('Önce şarkı adı yaz.');
+  try{
+    const r=await fetch('https://lrclib.net/api/search?q='+encodeURIComponent(q));
+    const j=await r.json();
+    const hit=j.find(x=>x.plainLyrics);
+    if(!hit) return alert('Söz bulunamadı, elle yapıştır.');
+    $('lyrics').value=hit.plainLyrics;
+    if(!$('artist').value) $('artist').value=hit.artistName;
+    render();
+  }catch(e){alert('Söz getirilemedi, elle yapıştır.')}
+};
+
+$('download').onclick=async()=>{
+  const cv=await html2canvas(card,{scale:3,useCORS:true,backgroundColor:null});
+  const a=document.createElement('a');
+  a.download='hikaye.png';a.href=cv.toDataURL('image/png');a.click();
+};
+
+render();
+</script>
+</body>
+</html>
